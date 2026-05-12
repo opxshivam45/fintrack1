@@ -1,0 +1,538 @@
+/* ============================================================
+   analytics.css — Styles for Analytics & Budget Page
+   ============================================================ */
+
+/* ── Alert Banners ── */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  border: 1px solid transparent;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Red danger alert — expenses exceeded income */
+.alert-banner.alert-danger {
+  background: rgba(255, 77, 109, 0.1);
+  border-color: rgba(255, 77, 109, 0.35);
+}
+
+/* Orange warning alert — approaching income limit */
+.alert-banner.alert-warning {
+  background: rgba(251, 146, 60, 0.1);
+  border-color: rgba(251, 146, 60, 0.35);
+}
+
+.alert-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.alert-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.alert-body strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.alert-body span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.alert-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.alert-danger .alert-badge {
+  background: rgba(255, 77, 109, 0.2);
+  color: #FF4D6D;
+}
+
+.alert-warning .alert-badge {
+  background: rgba(251, 146, 60, 0.2);
+  color: #FB923C;
+}
+
+/* "View Analytics →" button inside the dashboard alert */
+.alert-action-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.alert-action-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.3);
+}
+
+/* ── Mini Stats Row ── */
+.analytics-stats-row {
+  display: flex;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 28px;
+  margin-bottom: 24px;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.mini-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 80px;
+}
+
+.mini-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.mini-stat-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.mini-stat-value.income  { color: #34D399; }
+.mini-stat-value.expense { color: #FF4D6D; }
+
+.mini-stat-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  margin: 0 16px;
+}
+
+/* ── Analytics Grid Layout ── */
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+/* ── Analytics Card ── */
+.analytics-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px;
+  animation: fadeIn 0.4s ease both;
+}
+
+.analytics-card-header {
+  margin-bottom: 22px;
+}
+
+.analytics-card-header h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.analytics-card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Top Categories Ranking ── */
+.top-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.top-cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: rowSlideIn 0.4s ease both;
+}
+
+.top-cat-rank {
+  font-size: 22px;
+  width: 32px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.top-cat-info {
+  flex: 1;
+}
+
+.top-cat-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.top-cat-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.top-cat-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.top-cat-amount {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.top-cat-amount span {
+  display: block;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.top-cat-pct {
+  font-size: 11px;
+  color: var(--text-muted) !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 500 !important;
+}
+
+/* ── Other Categories (below top 3) ── */
+.other-categories {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.other-cats-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
+}
+
+.other-cat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+.other-cat-amount {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ── Smart Insights ── */
+.insights-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  animation: rowSlideIn 0.4s ease both;
+  transition: background 0.2s;
+}
+
+.insight-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.insight-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.insight-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.55;
+  padding-top: 2px;
+}
+
+/* ── Budget Manager ── */
+.budget-card {
+  margin-top: 0;
+}
+
+.budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.budget-item {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.budget-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+/* Highlight when over or near budget */
+.budget-item.over-budget {
+  border-color: rgba(255, 77, 109, 0.35);
+  background: rgba(255, 77, 109, 0.05);
+}
+
+.budget-item.near-budget {
+  border-color: rgba(251, 146, 60, 0.35);
+  background: rgba(251, 146, 60, 0.05);
+}
+
+.budget-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.budget-cat-label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* "Over!" and "Near limit" badges */
+.budget-status-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+
+.budget-status-badge.danger  { background: rgba(255,77,109,0.2);  color: #FF4D6D; }
+.budget-status-badge.warning { background: rgba(251,146,60,0.2);  color: #FB923C; }
+
+.budget-amounts {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.budget-spent {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.budget-limit {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Progress Bar ── */
+.budget-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.budget-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.budget-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.budget-progress-pct {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ── Budget Edit Input ── */
+.budget-edit-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.budget-input {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-dim);
+}
+
+.btn-save-budget {
+  background: var(--accent);
+  color: #0A0F1E;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: opacity 0.2s;
+}
+
+.btn-save-budget:hover { opacity: 0.85; }
+
+.btn-cancel-budget {
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+}
+
+.btn-cancel-budget:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Budget Action Row ── */
+.budget-action-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn-set-budget {
+  flex: 1;
+  background: rgba(255,255,255,0.04);
+  border: 1px dashed rgba(255,255,255,0.12);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.btn-set-budget:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-remove-budget {
+  background: transparent;
+  border: 1px solid rgba(255,77,109,0.2);
+  color: var(--text-muted);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: all 0.2s;
+}
+
+.btn-remove-budget:hover {
+  background: rgba(255,77,109,0.1);
+  color: #FF4D6D;
+  border-color: rgba(255,77,109,0.4);
+}
+
+/* ── Nav Alert Dot (red dot on Analytics nav item) ── */
+.nav-alert-dot {
+  width: 8px;
+  height: 8px;
+  background: #FF4D6D;
+  border-radius: 50%;
+  margin-left: auto;
+  box-shadow: 0 0 6px rgba(255,77,109,0.8);
+  animation: pulse 1.5s ease infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.3); opacity: 0.7; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .analytics-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .analytics-stats-row { gap: 12px; justify-content: center; }
+  .mini-stat-divider   { display: none; }
+  .budget-grid         { grid-template-columns: 1fr; }
+}

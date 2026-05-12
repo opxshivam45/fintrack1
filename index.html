@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinTrack — Personal Finance Tracker</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/auth.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/analytics.css" />
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/categories.js"></script>
+
+  <script type="text/babel">
+
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // ============================================================
+    // TOAST SYSTEM
+    // ============================================================
+    const ToastContext = React.createContext(null);
+
+    const ToastProvider = ({ children }) => {
+      const [toasts, setToasts] = useState([]);
+
+      const showToast = useCallback((message, type = "success") => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, message, type }]);
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+      }, []);
+
+      return (
+        <ToastContext.Provider value={showToast}>
+          {children}
+          <div className="toast-container">
+            {toasts.map(t => (
+              <div key={t.id} className={`toast ${t.type}`}>
+                <span>{t.type === "success" ? "✅" : t.type === "error" ? "❌" : t.type === "warning" ? "⚠️" : "ℹ️"}</span>
+                {t.message}
+              </div>
+            ))}
+          </div>
+        </ToastContext.Provider>
+      );
+    };
+
+    const useToast = () => React.useContext(ToastContext);
+
+    // ============================================================
+    // COMPONENT: LoginPage
+    // ============================================================
+    const LoginPage = ({ onLogin }) => {
+      const [tab, setTab]           = useState("login");
+      const [name, setName]         = useState("");
+      const [email, setEmail]       = useState("");
+      const [password, setPassword] = useState("");
+      const [error, setError]       = useState("");
+      const showToast = useToast();
+
+      const switchTab = (t) => { setTab(t); setError(""); setName(""); setEmail(""); setPassword(""); };
+
+      const handleSubmit = () => {
+        setError("");
+        if (!email || !password || (tab === "signup" && !name)) { setError("Please fill in all fields."); return; }
+
+        if (tab === "signup") {
+          const result = registerUser(name, email, password);
+          if (!result.success) { setError(result.error); return; }
+          saveUser(result.user);
+          showToast(`Welcome, ${result.user.name}! 🎉`);
+          onLogin(result.user);
+        } else {
+          const result = loginUser(email, password);
+          if (!result.success) { setError(result.error); return; }
+          saveUser(result.user);
+          showToast(`Welcome back, ${result.user.name}! 👋`);
+          onLogin(result.user);
+        }
+      };
+
+      const handleKeyDown = (e) => { if (e.key === "Enter") handleSubmit(); };
+
+      return (
+        <div className="auth-container">
+          <div className="auth-bg">
+            <div className="grid-overlay"></div>
+            <div className="shape shape-1"></div>
+            <div className="shape shape-2"></div>
+            <div className="shape shape-3"></div>
+            <div className="shape shape-4"></div>
+          </div>
+          <div className="auth-card">
+            <div className="auth-logo">
+              <div className="logo-icon">💹</div>
+              <h1>FinTrack</h1>
+              <p>Your personal money manager</p>
+            </div>
+            <div className="auth-tabs">
+              <button className={`auth-tab ${tab === "login" ? "active" : ""}`} onClick={() => switchTab("login")}>Login</button>
+              <button className={`auth-tab ${tab === "signup" ? "active" : ""}`} onClick={() => switchTab("signup")}>Sign Up</button>
+            </div>
+            <div className="auth-form">
+              {tab === "signup" && (
+                <div className="form-group">
+                  <label>Your Name</label>
+                  <input type="text" placeholder="e.g. Rahul Sharma" value={name} onChange={e => setName(e.target.value)} onKeyDown={handleKeyDown} />
+                </div>
+              )}
+              <div className="form-group">
+                <label>Email Address</label>
+                <input type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown} />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown} />
+              </div>
+              {error && <div className="error-msg">⚠️ {error}</div>}
+              <button className="btn-primary" onClick={handleSubmit}>
+                {tab === "login" ? "Login to Dashboard →" : "Create Account →"}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: BalanceCard — animated summary card
+    // ============================================================
+    const BalanceCard = ({ label, value, type, flash }) => {
+      const [displayVal, setDisplayVal] = useState(0);
+      const prevVal = useRef(0);
+
+      useEffect(() => {
+        const start = prevVal.current;
+        const end   = value;
+        const duration  = 600;
+        const startTime = performance.now();
+        const animate = (now) => {
+          const progress = Math.min((now - startTime) / duration, 1);
+          const eased    = 1 - Math.pow(1 - progress, 3);
+          setDisplayVal(Math.round(start + (end - start) * eased));
+          if (progress < 1) requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
+        prevVal.current = end;
+      }, [value]);
+
+      const icons = { balance: "💰", income: "📈", expense: "📉" };
+
+      return (
+        <div className={`summary-card ${type} ${flash ? `flash-${flash}` : ""}`}>
+          <span className="card-icon">{icons[type]}</span>
+          <div className="card-label">{label}</div>
+          <div className={`card-value ${type === "balance" ? (value >= 0 ? "positive" : "negative") : type}`}>
+            ₹{Math.abs(displayVal).toLocaleString("en-IN")}
+          </div>
+          <div className="card-sub">{type === "balance" ? "Total available" : `Total ${type}`}</div>
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: AddTransaction
+    // ============================================================
+    const AddTransaction = ({ onAdd }) => {
+      const showToast = useToast();
+      const [txType,      setTxType]      = useState("expense");
+      const [amount,      setAmount]      = useState("");
+      const [description, setDescription] = useState("");
+      const [category,    setCategory]    = useState("food");
+      const [date,        setDate]        = useState(new Date().toISOString().split("T")[0]);
+
+      const handleSubmit = () => {
+        if (!amount || isNaN(amount) || Number(amount) <= 0) { showToast("Enter a valid amount.", "error"); return; }
+        if (!description.trim()) { showToast("Please add a description.", "error"); return; }
+
+        const transaction = { id: generateId(), type: txType, amount: parseFloat(amount), description: description.trim(), category, date };
+        addTransaction(transaction);
+        showToast(`${txType === "income" ? "💚" : "🔴"} ₹${amount} ${txType} added!`);
+        onAdd(transaction);
+        setAmount(""); setDescription(""); setCategory("food");
+        setDate(new Date().toISOString().split("T")[0]);
+      };
+
+      return (
+        <div className="transaction-form-card">
+          <div className="page-header">
+            <h2>Add Transaction</h2>
+            <p>Record a new income or expense</p>
+          </div>
+          <div className="type-toggle">
+            <button className={`type-btn income ${txType === "income" ? "active" : ""}`} onClick={() => setTxType("income")}>📈 Income</button>
+            <button className={`type-btn expense ${txType === "expense" ? "active" : ""}`} onClick={() => setTxType("expense")}>📉 Expense</button>
+          </div>
+          <div className="form-grid">
+            <div className="form-field">
+              <label>Amount (₹)</label>
+              <input type="number" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} min="0" />
+            </div>
+            <div className="form-field">
+              <label>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div className="form-field full-width">
+              <label>Description</label>
+              <input type="text" placeholder="e.g. Lunch at canteen, Monthly rent..." value={description} onChange={e => setDescription(e.target.value)} />
+            </div>
+            <div className="form-field full-width">
+              <label>Category</label>
+              <select value={category} onChange={e => setCategory(e.target.value)}>
+                {CATEGORIES.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <button className="btn-submit" onClick={handleSubmit}>
+            ➕ Add {txType.charAt(0).toUpperCase() + txType.slice(1)}
+          </button>
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: TransactionHistory
+    // ============================================================
+    const TransactionHistory = ({ transactions, onDelete }) => {
+      const showToast = useToast();
+      const [filterType,     setFilterType]     = useState("all");
+      const [filterCategory, setFilterCategory] = useState("all");
+
+      const filtered = transactions
+        .filter(t => filterType     === "all" || t.type     === filterType)
+        .filter(t => filterCategory === "all" || t.category === filterCategory)
+        .slice().reverse();
+
+      const handleDelete = (id, desc) => {
+        if (!window.confirm(`Delete "${desc}"? This cannot be undone.`)) return;
+        deleteTransaction(id);
+        showToast("🗑️ Transaction deleted.", "info");
+        onDelete();
+      };
+
+      const formatDate = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+      return (
+        <div>
+          <div className="page-header">
+            <h2>Transaction History</h2>
+            <p>{filtered.length} transaction{filtered.length !== 1 ? "s" : ""} found</p>
+          </div>
+          <div className="history-card">
+            <div className="filter-bar">
+              <select className="filter-select" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                <option value="all">All Types</option>
+                <option value="income">Income Only</option>
+                <option value="expense">Expense Only</option>
+              </select>
+              <select className="filter-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+                <option value="all">All Categories</option>
+                {CATEGORIES.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
+              </select>
+            </div>
+            {filtered.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">📭</div>
+                <h3>No transactions yet</h3>
+                <p>Add your first income or expense to get started!</p>
+              </div>
+            ) : (
+              <table className="tx-table">
+                <thead>
+                  <tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Amount</th><th>Delete</th></tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t, idx) => {
+                    const catColor = getCategoryColor(t.category);
+                    const catLabel = getCategoryLabel(t.category);
+                    return (
+                      <tr key={t.id} className="tx-row-enter" style={{ animationDelay: `${idx * 0.04}s` }}>
+                        <td className="tx-date">{formatDate(t.date)}</td>
+                        <td>{t.description}</td>
+                        <td><span className="category-badge" style={{ background: catColor + "22", color: catColor }}>{catLabel}</span></td>
+                        <td><span className={`type-pill ${t.type}`}>{t.type}</span></td>
+                        <td><span className={`tx-amount ${t.type}`}>{t.type === "income" ? "+" : "−"}₹{t.amount.toLocaleString("en-IN")}</span></td>
+                        <td><button className="btn-delete" onClick={() => handleDelete(t.id, t.description)}>🗑️</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: AnalyticsPage
+    // Shows top spending categories, smart insights, budget manager
+    // and an income-exceed alert banner
+    // ============================================================
+    const AnalyticsPage = ({ transactions }) => {
+      const showToast = useToast();
+
+      // Load budgets from localStorage (object: { categoryId: amount })
+      const [budgets,      setBudgets]      = useState(() => {
+        const saved = localStorage.getItem("ft_budgets");
+        return saved ? JSON.parse(saved) : {};
+      });
+      const [editBudget,   setEditBudget]   = useState({}); // temp input values while editing
+      const [editingCat,   setEditingCat]   = useState(null); // which category is being edited
+
+      // ── Compute totals from transactions ──
+      const totalIncome  = transactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const totalExpense = transactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+
+      // ── Build spending per category (expenses only) ──
+      // Result: [{ id, label, color, spent, budget, percent }]
+      const categorySpending = CATEGORIES.map(cat => {
+        const spent = transactions
+          .filter(t => t.type === "expense" && t.category === cat.id)
+          .reduce((s, t) => s + t.amount, 0);
+        const budget  = budgets[cat.id] || 0;
+        const percent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+        return { ...cat, spent, budget, percent };
+      })
+      .filter(c => c.spent > 0 || c.budget > 0) // only show categories with activity
+      .sort((a, b) => b.spent - a.spent);        // highest spending first
+
+      // Top 3 spenders (for ranking section)
+      const topCategories = [...categorySpending].sort((a, b) => b.spent - a.spent).slice(0, 3);
+
+      // ── Alert logic ──
+      // Warn when expenses reach 80% of income (approaching limit)
+      const expenseRatio   = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+      const isExceeded     = totalExpense >= totalIncome && totalIncome > 0;
+      const isApproaching  = expenseRatio >= 80 && !isExceeded;
+
+      // ── Smart Insights ──
+      // Generate context-aware tips based on actual data
+      const generateInsights = () => {
+        const insights = [];
+
+        if (transactions.length === 0) {
+          insights.push({ icon: "👋", text: "No data yet! Add some transactions to see smart insights.", color: "#60A5FA" });
+          return insights;
+        }
+
+        // Insight 1: biggest spending category
+        if (topCategories.length > 0) {
+          const top = topCategories[0];
+          const pct = totalExpense > 0 ? Math.round((top.spent / totalExpense) * 100) : 0;
+          insights.push({ icon: "🔥", text: `Your biggest spend is ${top.label} — ₹${top.spent.toLocaleString("en-IN")} (${pct}% of total expenses).`, color: top.color });
+        }
+
+        // Insight 2: savings rate
+        if (totalIncome > 0) {
+          const savingsRate = Math.round(((totalIncome - totalExpense) / totalIncome) * 100);
+          if (savingsRate > 30) {
+            insights.push({ icon: "🌟", text: `Great job! You're saving ${savingsRate}% of your income. Keep it up!`, color: "#00E5A0" });
+          } else if (savingsRate > 0) {
+            insights.push({ icon: "💡", text: `You're saving ${savingsRate}% of your income. Try to aim for 30% savings.`, color: "#FB923C" });
+          } else {
+            insights.push({ icon: "🚨", text: `You're spending more than you earn! Consider reducing expenses.`, color: "#FF4D6D" });
+          }
+        }
+
+        // Insight 3: budget warnings for over-budget categories
+        const overBudget = categorySpending.filter(c => c.budget > 0 && c.spent > c.budget);
+        if (overBudget.length > 0) {
+          insights.push({ icon: "⚠️", text: `You've exceeded the budget for: ${overBudget.map(c => c.label).join(", ")}.`, color: "#FF4D6D" });
+        }
+
+        // Insight 4: near-budget categories (80-99%)
+        const nearBudget = categorySpending.filter(c => c.budget > 0 && c.percent >= 80 && c.spent <= c.budget);
+        if (nearBudget.length > 0) {
+          insights.push({ icon: "📊", text: `Approaching budget limit: ${nearBudget.map(c => c.label).join(", ")}. Spend carefully!`, color: "#FB923C" });
+        }
+
+        // Insight 5: no budget set yet
+        const noBudget = CATEGORIES.filter(c => !budgets[c.id]);
+        if (noBudget.length === CATEGORIES.length) {
+          insights.push({ icon: "🎯", text: "Tip: Set budgets for your categories below to track your limits!", color: "#60A5FA" });
+        }
+
+        return insights;
+      };
+
+      const insights = generateInsights();
+
+      // ── Budget Save Handler ──
+      // Saves the budget for a specific category to localStorage
+      const saveBudget = (catId) => {
+        const val = parseFloat(editBudget[catId]);
+        if (isNaN(val) || val < 0) { showToast("Enter a valid budget amount.", "error"); return; }
+        const updated = { ...budgets, [catId]: val };
+        setBudgets(updated);
+        localStorage.setItem("ft_budgets", JSON.stringify(updated));
+        setEditingCat(null);
+        showToast(`🎯 Budget set for ${getCategoryLabel(catId)}!`);
+      };
+
+      // ── Budget Remove Handler ──
+      const removeBudget = (catId) => {
+        const updated = { ...budgets };
+        delete updated[catId];
+        setBudgets(updated);
+        localStorage.setItem("ft_budgets", JSON.stringify(updated));
+        showToast("Budget removed.", "info");
+      };
+
+      // ── Determine progress bar color based on usage ──
+      const getProgressColor = (percent) => {
+        if (percent >= 100) return "#FF4D6D";   // exceeded — red
+        if (percent >= 80)  return "#FB923C";   // warning — orange
+        return "#00E5A0";                        // safe — green
+      };
+
+      // All categories (for budget manager, show all 8)
+      const allCatsForBudget = CATEGORIES.map(cat => {
+        const spent   = transactions.filter(t => t.type === "expense" && t.category === cat.id).reduce((s, t) => s + t.amount, 0);
+        const budget  = budgets[cat.id] || 0;
+        const percent = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+        return { ...cat, spent, budget, percent };
+      });
+
+      return (
+        <div className="analytics-page">
+          <div className="page-header">
+            <h2>📊 Analytics & Budget</h2>
+            <p>Track your spending patterns and manage budgets</p>
+          </div>
+
+          {/* ── INCOME ALERT BANNER ── */}
+          {isExceeded && (
+            <div className="alert-banner alert-danger">
+              <div className="alert-icon">🚨</div>
+              <div className="alert-body">
+                <strong>Expenses Exceeded Income!</strong>
+                <span>You've spent ₹{totalExpense.toLocaleString("en-IN")} but only earned ₹{totalIncome.toLocaleString("en-IN")}. You're ₹{Math.abs(balance).toLocaleString("en-IN")} in the red.</span>
+              </div>
+              <div className="alert-badge">EXCEEDED</div>
+            </div>
+          )}
+
+          {isApproaching && (
+            <div className="alert-banner alert-warning">
+              <div className="alert-icon">⚠️</div>
+              <div className="alert-body">
+                <strong>Approaching Income Limit!</strong>
+                <span>You've used {Math.round(expenseRatio)}% of your income. Only ₹{(totalIncome - totalExpense).toLocaleString("en-IN")} remaining.</span>
+              </div>
+              <div className="alert-badge">WARNING</div>
+            </div>
+          )}
+
+          {/* ── OVERVIEW MINI STATS ── */}
+          <div className="analytics-stats-row">
+            <div className="mini-stat">
+              <span className="mini-stat-label">Income</span>
+              <span className="mini-stat-value income">₹{totalIncome.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="mini-stat-divider"></div>
+            <div className="mini-stat">
+              <span className="mini-stat-label">Expenses</span>
+              <span className="mini-stat-value expense">₹{totalExpense.toLocaleString("en-IN")}</span>
+            </div>
+            <div className="mini-stat-divider"></div>
+            <div className="mini-stat">
+              <span className="mini-stat-label">Savings Rate</span>
+              <span className="mini-stat-value" style={{ color: expenseRatio < 80 ? "#00E5A0" : "#FF4D6D" }}>
+                {totalIncome > 0 ? Math.round(100 - expenseRatio) : 0}%
+              </span>
+            </div>
+            <div className="mini-stat-divider"></div>
+            <div className="mini-stat">
+              <span className="mini-stat-label">Transactions</span>
+              <span className="mini-stat-value" style={{ color: "#60A5FA" }}>{transactions.length}</span>
+            </div>
+          </div>
+
+          <div className="analytics-grid">
+
+            {/* ── TOP SPENDING CATEGORIES RANKED ── */}
+            <div className="analytics-card">
+              <div className="analytics-card-header">
+                <h3>🏆 Top Spending Categories</h3>
+                <span className="analytics-card-sub">Ranked by total spent</span>
+              </div>
+
+              {topCategories.length === 0 ? (
+                <div className="empty-state" style={{ padding: "32px" }}>
+                  <div className="empty-icon" style={{ fontSize: "32px" }}>📭</div>
+                  <h3>No expense data yet</h3>
+                  <p>Add some expenses to see rankings</p>
+                </div>
+              ) : (
+                <div className="top-categories">
+                  {topCategories.map((cat, idx) => {
+                    const medals = ["🥇", "🥈", "🥉"];
+                    const pct = totalExpense > 0 ? Math.round((cat.spent / totalExpense) * 100) : 0;
+                    return (
+                      <div key={cat.id} className="top-cat-row" style={{ animationDelay: `${idx * 0.1}s` }}>
+                        <div className="top-cat-rank">{medals[idx]}</div>
+                        <div className="top-cat-info">
+                          <div className="top-cat-name">{cat.label}</div>
+                          <div className="top-cat-bar-wrap">
+                            <div className="top-cat-bar" style={{ width: `${pct}%`, background: cat.color }}></div>
+                          </div>
+                        </div>
+                        <div className="top-cat-amount">
+                          <span style={{ color: cat.color }}>₹{cat.spent.toLocaleString("en-IN")}</span>
+                          <span className="top-cat-pct">{pct}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* All categories spending breakdown */}
+                  {categorySpending.length > 3 && (
+                    <div className="other-categories">
+                      <div className="other-cats-label">Other Categories</div>
+                      {categorySpending.slice(3).map(cat => (
+                        <div key={cat.id} className="other-cat-row">
+                          <span style={{ color: cat.color }}>{cat.label}</span>
+                          <span className="other-cat-amount">₹{cat.spent.toLocaleString("en-IN")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── SMART INSIGHTS ── */}
+            <div className="analytics-card">
+              <div className="analytics-card-header">
+                <h3>💡 Smart Insights</h3>
+                <span className="analytics-card-sub">AI-powered tips based on your data</span>
+              </div>
+              <div className="insights-list">
+                {insights.map((ins, idx) => (
+                  <div key={idx} className="insight-item" style={{ animationDelay: `${idx * 0.1}s` }}>
+                    <div className="insight-icon" style={{ background: ins.color + "22", color: ins.color }}>
+                      {ins.icon}
+                    </div>
+                    <p className="insight-text">{ins.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* ── BUDGET MANAGER ── */}
+          <div className="analytics-card budget-card">
+            <div className="analytics-card-header">
+              <h3>🎯 Budget Manager</h3>
+              <span className="analytics-card-sub">Set monthly limits per category — click a category to set its budget</span>
+            </div>
+
+            <div className="budget-grid">
+              {allCatsForBudget.map(cat => {
+                const isEditing      = editingCat === cat.id;
+                const isOverBudget   = cat.budget > 0 && cat.spent > cat.budget;
+                const isNearBudget   = cat.budget > 0 && cat.percent >= 80 && !isOverBudget;
+                const progressColor  = getProgressColor(cat.percent);
+
+                return (
+                  <div key={cat.id} className={`budget-item ${isOverBudget ? "over-budget" : ""} ${isNearBudget ? "near-budget" : ""}`}>
+                    {/* Category Header */}
+                    <div className="budget-item-header">
+                      <span className="budget-cat-label" style={{ color: cat.color }}>{cat.label}</span>
+                      {isOverBudget && <span className="budget-status-badge danger">Over!</span>}
+                      {isNearBudget && <span className="budget-status-badge warning">Near limit</span>}
+                    </div>
+
+                    {/* Spent info */}
+                    <div className="budget-amounts">
+                      <span className="budget-spent">Spent: <strong style={{ color: cat.color }}>₹{cat.spent.toLocaleString("en-IN")}</strong></span>
+                      {cat.budget > 0 && (
+                        <span className="budget-limit">Limit: ₹{cat.budget.toLocaleString("en-IN")}</span>
+                      )}
+                    </div>
+
+                    {/* Progress Bar (only shown when budget is set) */}
+                    {cat.budget > 0 && (
+                      <div className="budget-progress-wrap">
+                        <div className="budget-progress-bar">
+                          <div
+                            className="budget-progress-fill"
+                            style={{ width: `${cat.percent}%`, background: progressColor }}
+                          ></div>
+                        </div>
+                        <span className="budget-progress-pct" style={{ color: progressColor }}>
+                          {Math.round(cat.percent)}%
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Edit Budget Input */}
+                    {isEditing ? (
+                      <div className="budget-edit-row">
+                        <input
+                          type="number"
+                          className="budget-input"
+                          placeholder="Enter budget (₹)"
+                          value={editBudget[cat.id] || ""}
+                          onChange={e => setEditBudget(prev => ({ ...prev, [cat.id]: e.target.value }))}
+                          autoFocus
+                          onKeyDown={e => { if (e.key === "Enter") saveBudget(cat.id); if (e.key === "Escape") setEditingCat(null); }}
+                        />
+                        <button className="btn-save-budget" onClick={() => saveBudget(cat.id)}>Save</button>
+                        <button className="btn-cancel-budget" onClick={() => setEditingCat(null)}>✕</button>
+                      </div>
+                    ) : (
+                      <div className="budget-action-row">
+                        <button
+                          className="btn-set-budget"
+                          onClick={() => { setEditingCat(cat.id); setEditBudget(prev => ({ ...prev, [cat.id]: cat.budget || "" })); }}
+                        >
+                          {cat.budget > 0 ? "✏️ Edit Budget" : "➕ Set Budget"}
+                        </button>
+                        {cat.budget > 0 && (
+                          <button className="btn-remove-budget" onClick={() => removeBudget(cat.id)}>Remove</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: Dashboard — main layout with sidebar
+    // ============================================================
+    const Dashboard = ({ user, onLogout }) => {
+      const [activePage,    setActivePage]    = useState("dashboard");
+      const [transactions,  setTransactions]  = useState(getTransactions());
+      const [flash,         setFlash]         = useState(null);
+      const [sidebarOpen,   setSidebarOpen]   = useState(false);
+
+      const totalIncome  = transactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
+      const totalExpense = transactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+      const balance      = totalIncome - totalExpense;
+
+      // Alert flag — show a warning dot on Analytics nav if expenses ≥ 80% of income
+      const showAlertDot = totalIncome > 0 && totalExpense >= totalIncome * 0.8;
+
+      const handleAdd = (tx) => {
+        setTransactions(getTransactions());
+        setFlash(tx.type === "income" ? "green" : "red");
+        setTimeout(() => setFlash(null), 700);
+        setActivePage("dashboard");
+      };
+
+      const handleDelete = () => setTransactions(getTransactions());
+
+      const avatarLetter = user.name ? user.name.charAt(0).toUpperCase() : "U";
+      const closeSidebar = () => setSidebarOpen(false);
+
+      const navItems = [
+        { id: "dashboard", icon: "🏠",  label: "Dashboard" },
+        { id: "add",       icon: "➕",  label: "Add Transaction" },
+        { id: "history",   icon: "📋",  label: "History" },
+        { id: "analytics", icon: "📊",  label: "Analytics", alert: showAlertDot },
+      ];
+
+      return (
+        <div className="app-layout">
+          <button className="hamburger" onClick={() => setSidebarOpen(!sidebarOpen)}>☰</button>
+          <div className={`sidebar-overlay ${sidebarOpen ? "visible" : ""}`} onClick={closeSidebar}></div>
+
+          <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+            <div className="sidebar-logo">
+              <div className="logo-icon">💹</div>
+              <span>FinTrack</span>
+            </div>
+            <div className="sidebar-user">
+              <div className="user-avatar">{avatarLetter}</div>
+              <div className="user-info">
+                <div className="user-name">{user.name}</div>
+                <div className="user-role">Student</div>
+              </div>
+            </div>
+
+            {navItems.map(item => (
+              <button
+                key={item.id}
+                className={`nav-item ${activePage === item.id ? "active" : ""}`}
+                onClick={() => { setActivePage(item.id); closeSidebar(); }}
+              >
+                <span className="nav-icon">{item.icon}</span>
+                {item.label}
+                {/* Red dot alert badge on Analytics nav item */}
+                {item.alert && <span className="nav-alert-dot"></span>}
+              </button>
+            ))}
+
+            <div className="sidebar-bottom">
+              <button className="nav-item logout" onClick={() => { logoutUser(); onLogout(); }}>
+                <span className="nav-icon">🚪</span>
+                Logout
+              </button>
+            </div>
+          </aside>
+
+          <main className="main-content">
+            {/* ── Dashboard Home ── */}
+            {activePage === "dashboard" && (
+              <div>
+                <div className="page-header">
+                  <h2>Good day, {user.name.split(" ")[0]}! 👋</h2>
+                  <p>Here's your financial overview</p>
+                </div>
+
+                {/* Income alert banner on home too */}
+                {totalIncome > 0 && totalExpense >= totalIncome && (
+                  <div className="alert-banner alert-danger" style={{ marginBottom: "20px" }}>
+                    <div className="alert-icon">🚨</div>
+                    <div className="alert-body">
+                      <strong>Expenses have exceeded your Income!</strong>
+                      <span>Go to Analytics to review your budget.</span>
+                    </div>
+                    <button className="alert-action-btn" onClick={() => setActivePage("analytics")}>View Analytics →</button>
+                  </div>
+                )}
+                {totalIncome > 0 && totalExpense >= totalIncome * 0.8 && totalExpense < totalIncome && (
+                  <div className="alert-banner alert-warning" style={{ marginBottom: "20px" }}>
+                    <div className="alert-icon">⚠️</div>
+                    <div className="alert-body">
+                      <strong>You're approaching your income limit!</strong>
+                      <span>{Math.round((totalExpense / totalIncome) * 100)}% of income spent. Only ₹{(totalIncome - totalExpense).toLocaleString("en-IN")} left.</span>
+                    </div>
+                    <button className="alert-action-btn" onClick={() => setActivePage("analytics")}>View Analytics →</button>
+                  </div>
+                )}
+
+                <div className="summary-grid">
+                  <BalanceCard label="Total Balance" value={balance}      type="balance" flash={flash} />
+                  <BalanceCard label="Total Income"  value={totalIncome}  type="income" />
+                  <BalanceCard label="Total Expense" value={totalExpense} type="expense" />
+                </div>
+
+                <div style={{ marginTop: "8px" }}>
+                  <div className="page-header">
+                    <h2 style={{ fontSize: "18px" }}>Recent Transactions</h2>
+                    <p>Last {Math.min(5, transactions.length)} entries</p>
+                  </div>
+                  <div className="history-card">
+                    {transactions.length === 0 ? (
+                      <div className="empty-state">
+                        <div className="empty-icon">💳</div>
+                        <h3>No transactions yet</h3>
+                        <p>Click "Add Transaction" to get started!</p>
+                      </div>
+                    ) : (
+                      <table className="tx-table">
+                        <thead>
+                          <tr><th>Date</th><th>Description</th><th>Category</th><th>Type</th><th>Amount</th></tr>
+                        </thead>
+                        <tbody>
+                          {[...transactions].reverse().slice(0, 5).map((t, idx) => {
+                            const catColor = getCategoryColor(t.category);
+                            const catLabel = getCategoryLabel(t.category);
+                            return (
+                              <tr key={t.id} className="tx-row-enter" style={{ animationDelay: `${idx * 0.05}s` }}>
+                                <td className="tx-date">{new Date(t.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</td>
+                                <td>{t.description}</td>
+                                <td><span className="category-badge" style={{ background: catColor + "22", color: catColor }}>{catLabel}</span></td>
+                                <td><span className={`type-pill ${t.type}`}>{t.type}</span></td>
+                                <td><span className={`tx-amount ${t.type}`}>{t.type === "income" ? "+" : "−"}₹{t.amount.toLocaleString("en-IN")}</span></td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activePage === "add"       && <AddTransaction onAdd={handleAdd} />}
+            {activePage === "history"   && <TransactionHistory transactions={transactions} onDelete={handleDelete} />}
+            {activePage === "analytics" && <AnalyticsPage transactions={transactions} />}
+          </main>
+        </div>
+      );
+    };
+
+    // ============================================================
+    // COMPONENT: App (Root)
+    // ============================================================
+    const App = () => {
+      const [user, setUser] = useState(() => getUser());
+      return (
+        <ToastProvider>
+          {user
+            ? <Dashboard user={user} onLogout={() => setUser(null)} />
+            : <LoginPage onLogin={(u) => setUser(u)} />
+          }
+        </ToastProvider>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+
+  </script>
+</body>
+</html>
